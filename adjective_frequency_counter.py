@@ -1,45 +1,109 @@
-#requires download of nltk in python
-import os
+"""
+Count adjective frequency in an NLTK corpus text.
+
+This script lets a user choose an available NLTK corpus and text file,
+then extracts adjectives and reports their total frequency.
+"""
+
+from collections import Counter
+
 import nltk
-from nltk.corpus import *
-import string
+from nltk.corpus import brown, gutenberg, inaugural, reuters, webtext
+
+
+CORPORA = {
+    "brown": brown,
+    "gutenberg": gutenberg,
+    "inaugural": inaugural,
+    "reuters": reuters,
+    "webtext": webtext,
+}
+
+ADJECTIVE_TAGS = {"JJ", "JJR", "JJS"}
+EXCLUDED_WORDS = {"such"}
+
+
+def choose_corpus():
+    """Prompt the user to choose an available corpus."""
+    print("Available corpora:")
+    for name in CORPORA:
+        print(f"- {name}")
+
+    while True:
+        choice = input("\nChoose a corpus: ").strip().lower()
+        if choice in CORPORA:
+            return choice, CORPORA[choice]
+
+        print("Invalid corpus. Please choose one from the list.")
+
+
+def choose_file(corpus):
+    """Prompt the user to choose a file from the selected corpus."""
+    file_ids = corpus.fileids()
+
+    print("\nAvailable files:")
+    for file_id in file_ids[:25]:
+        print(f"- {file_id}")
+
+    if len(file_ids) > 25:
+        print(f"...and {len(file_ids) - 25} more")
+
+    while True:
+        choice = input("\nChoose a file ID: ").strip()
+        if choice in file_ids:
+            return choice
+
+        print("Invalid file ID. Please copy one exactly from the list.")
+
+
+def extract_adjectives(text):
+    """Extract adjectives from text using NLTK POS tags."""
+    tokens = nltk.word_tokenize(text)
+    tagged_tokens = nltk.pos_tag(tokens)
+
+    adjectives = []
+
+    for word, tag in tagged_tokens:
+        if tag in ADJECTIVE_TAGS and word.lower() not in EXCLUDED_WORDS:
+            adjectives.append(word.lower())
+
+    return adjectives
+
+
+def format_results(corpus_name, file_id, adjective_counts):
+    """Format adjective frequency results."""
+    lines = [
+        f"Corpus: {corpus_name}",
+        f"File: {file_id}",
+        f"Total adjectives: {sum(adjective_counts.values())}",
+        f"Unique adjectives: {len(adjective_counts)}",
+        "",
+        "Most common adjectives:",
+    ]
+
+    for adjective, count in adjective_counts.most_common():
+        lines.append(f"{adjective}: {count}")
+
+    return "\n".join(lines)
+
 
 def main():
-    print("\nHere are the corpora built into nltk:")
-    for h in os.listdir(nltk.data.find("corpora")):
-        if '.zip' not in h:
-            print(h)
-    print()
-    chosen_corpora = input("Enter corpora name (copy the name EXACTLY as listed): ")
-    function_string = "nltk.corpus." + chosen_corpora + ".fileids()"
-    print("\nHere are the options of corpora from", chosen_corpora + ": \n")
-    for corpus in eval(function_string):
-        print(str(corpus))
-    print()
-    text_function = chosen_corpora + ".raw(str(input('Enter text file name (with .txt): ')))"
-    text = eval(text_function)
-    tokens = nltk.word_tokenize(text)
-    tagged_corpora = nltk.pos_tag(tokens)
-    update_corpora = ""
-    
-    count_adj = 0
+    """Run the adjective counter workflow."""
+    corpus_name, corpus = choose_corpus()
+    file_id = choose_file(corpus)
 
-    for i in range(len(tagged_corpora)):
-        if ((('JJ' in tagged_corpora[i]) or ('JJR' in tagged_corpora[i]) or ('JJS' in tagged_corpora[i])) and (('such' not in tagged_corpora[i]) and ('Such' not in tagged_corpora[i]))):
-            count_adj += 1
-            update_corpora += str(tagged_corpora[i][0]) + "\n"
+    text = corpus.raw(file_id)
+    adjectives = extract_adjectives(text)
+    adjective_counts = Counter(adjectives)
 
-    update_corpora += "Adjectives: " + str(count_adj)
-    f = open(str(input("Enter filename for which you want the data text to be exported (with .txt): \n")), "w")
-    f.write(update_corpora)
+    output_file = input("\nEnter output filename, e.g. adjective_counts.txt: ").strip()
+    results = format_results(corpus_name, file_id, adjective_counts)
 
-while True:
-    answer = input("Run the AA Counter Frequency program? (y/n): ")
-    if answer not in ('y', 'n'):
-        print("Invalid input.")
-        break
-    if answer == 'y':
-        main()
-    else:
-        print("Goodbye.")
-        break
+    with open(output_file, "w", encoding="utf-8") as file:
+        file.write(results)
+
+    print(f"\nSaved {sum(adjective_counts.values())} adjective tokens to {output_file}")
+
+
+if __name__ == "__main__":
+    main()
